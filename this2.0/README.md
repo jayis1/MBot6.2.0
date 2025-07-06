@@ -26,6 +26,7 @@ A self-contained Discord music bot built with Python and `discord.py`. It's desi
 - ✅ **Looping**: Toggle looping for the currently playing song.
 - ✅ **Auto-Disconnect**: Automatically disconnects from the voice channel after one minute of inactivity.
 - ✅ **Admin Commands**: `shutdown` and `restart` the bot remotely.
+- ✅ **Secure Communication**: Implements TLS and HTTPS for secure data transmission.
 
 ---
 
