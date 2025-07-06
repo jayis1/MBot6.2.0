@@ -24,7 +24,7 @@ A self-contained Discord music bot built with Python and `discord.py`. It's desi
 - ✅ **Queue Management**: `add`, `remove`, `clear`, `shuffle`, and `view queue`.
 - ✅ **Audio Controls**: Adjust `volume` and playback `speed`.
 - ✅ **Looping**: Toggle looping for the currently playing song.
-- ✅ **Auto-Disconnect**: Automatically disconnects from the voice channel after one minute of inactivity.
+- ✅ **Auto-Disconnect**: Automatically disconnects from the voice channel after one minute if the queue is empty and nothing is playing.
 - ✅ **Admin Commands**: `shutdown` and `restart` the bot remotely.
 - ✅ **Secure Communication**: Implements TLS and HTTPS for secure data transmission.
 
