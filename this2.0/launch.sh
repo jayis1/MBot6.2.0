@@ -65,7 +65,7 @@ setup_environment() {
     chmod +x cogs/*.py
     chmod +x utils/*.py
     chmod +x config.py
-    chmod +x Import_log_parser.py
+    chmod +x utils/import_parser.py
     
     
     echo "---------------------------------"
