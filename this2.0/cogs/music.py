@@ -211,22 +211,13 @@ class Music(commands.Cog):
                     logging.warning("Could not find any playable playlist content or it's not a playlist.")
                     return await ctx.send(embed=self.create_embed("No Playlist Found", f"{config.ERROR_EMOJI} Could not find any playable playlist content for your URL, or it's not a valid playlist URL.", discord.Color.orange()))
 
-                first_song = result[0]
-                remaining_songs = result[1:]
-
-                # Play the first song immediately
-                await queue.put(first_song)
-                logging.info(f"Added {first_song.title} to queue from playlist (first song).")
-                added_count = 1
-
-                # Add remaining songs to the queue
-                for entry in remaining_songs:
+                added_count = 0
+                for entry in result:
                     await queue.put(entry)
                     added_count += 1
-                    logging.info(f"Added {entry.title} to queue from playlist.")
                 
                 if added_count > 0:
-                    await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {added_count} songs from the playlist to the queue. Playing first song now."))
+                    await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {added_count} songs from the playlist to the queue."))
                 else:
                     await ctx.send(embed=self.create_embed("No Songs Added", f"{config.ERROR_EMOJI} No playable songs were found in the playlist.", discord.Color.orange()))
 
@@ -239,6 +230,59 @@ class Music(commands.Cog):
         except Exception as e:
             logging.error(f"Error in playlist command: {e}")
             await ctx.send(embed=self.create_embed("Error", f"An error occurred: {e}", discord.Color.red()))
+
+    @commands.command(name="radio")
+    async def radio(self, ctx, *, url):
+        logging.info(f"Radio command received with URL: {url}")
+        if not ctx.author.voice:
+            logging.warning("User not in a voice channel.")
+            return await ctx.send(embed=self.create_embed("Error", f"{config.ERROR_EMOJI} You must be in a voice channel to play music.", discord.Color.red()))
+
+        if not ctx.voice_client:
+            logging.info("Bot not in a voice channel, joining.")
+            await ctx.author.voice.channel.connect()
+
+        queue = await self.get_queue(ctx.guild.id)
+        loading_msg = await ctx.send(embed=self.create_embed("Loading Radio", f"{config.QUEUE_EMOJI} Fetching playlist songs, please wait..."))
+        
+        try:
+            async with ctx.typing():
+                logging.info(f"Attempting to get YTDLSource for radio from URL: {url}")
+                
+                # Custom options for radio loading (more songs)
+                radio_opts = YTDL_FORMAT_OPTIONS.copy()
+                radio_opts["noplaylist"] = False
+                radio_opts["playlist_items"] = "1-100"  # Load up to 100 songs for radio
+                
+                result = await YTDLSource.from_url(url, loop=self.bot.loop, ytdl_opts=radio_opts)
+                logging.info(f"YTDLSource.from_url returned {len(result) if isinstance(result, list) else 'single'} entries for radio.")
+
+                if not result or not isinstance(result, list):
+                    await loading_msg.delete()
+                    logging.warning("Could not find any playable content or it's not a playlist.")
+                    return await ctx.send(embed=self.create_embed("No Radio Content", f"{config.ERROR_EMOJI} Could not find any playable playlist content for your URL.", discord.Color.orange()))
+
+                added_count = 0
+                for entry in result:
+                    await queue.put(entry)
+                    added_count += 1
+                
+                await loading_msg.delete()
+                if added_count > 0:
+                    await ctx.send(embed=self.create_embed("Radio Started", f"{config.SUCCESS_EMOJI} Loaded {added_count} songs from the radio playlist into the queue."))
+                else:
+                    await ctx.send(embed=self.create_embed("No Songs Added", f"{config.ERROR_EMOJI} No playable songs were found.", discord.Color.orange()))
+
+            if not ctx.voice_client.is_playing():
+                logging.info("Voice client not playing, starting playback.")
+                if ctx.guild.id in self.inactivity_timers:
+                    self.inactivity_timers[ctx.guild.id].cancel()
+                    del self.inactivity_timers[ctx.guild.id]
+                await self.play_next(ctx)
+        except Exception as e:
+            await loading_msg.delete()
+            logging.error(f"Error in radio command: {e}")
+            await ctx.send(embed=self.create_embed("Error", f"An error occurred while loading radio: {e}", discord.Color.red()))
 
     async def play_next(self, ctx):
         logging.info("play_next called.")
@@ -257,8 +301,11 @@ class Music(commands.Cog):
                 if current_speed != 1.0:
                     player_options['options'] += f' -filter:a "atempo={current_speed}"'
 
-                player = discord.FFmpegOpusAudio(data.url, **player_options)
-                player.volume = self.current_volume.get(ctx.guild.id, 1.0) # Apply stored volume
+                # Use FFmpegPCMAudio with PCMVolumeTransformer for working volume control
+                source = discord.FFmpegPCMAudio(data.url, **player_options)
+                player = discord.PCMVolumeTransformer(source)
+                player.volume = self.current_volume.get(ctx.guild.id, 1.0)
+                
                 logging.info(f"Playback initiated for {data.title} with speed {current_speed}x. Applied volume: {player.volume}")
                 ctx.voice_client.play(player, after=lambda e: self.bot.loop.create_task(self._after_playback(ctx, e)))
                 self.current_song[ctx.guild.id] = data
@@ -531,13 +578,21 @@ class Music(commands.Cog):
     @commands.command(name="resume")
     async def resume(self, ctx):
         logging.info(f"Resume command invoked by {ctx.author} in {ctx.guild.name}")
-        if ctx.voice_client and ctx.voice_client.is_paused():
-            ctx.voice_client.resume()
-            logging.info(f"Music resumed in {ctx.guild.name}")
-            await ctx.send(embed=self.create_embed("Playback Resumed", f"{config.PLAY_EMOJI} The music has been resumed."))
+        if ctx.voice_client:
+            if ctx.voice_client.is_paused():
+                ctx.voice_client.resume()
+                logging.info(f"Music resumed in {ctx.guild.name}")
+                await ctx.send(embed=self.create_embed("Playback Resumed", f"{config.PLAY_EMOJI} The music has been resumed."))
+            elif not ctx.voice_client.is_playing() and ctx.voice_client.source:
+                # Fallback if state is inconsistent but source exists
+                ctx.voice_client.resume()
+                logging.info(f"Music resumed (fallback) in {ctx.guild.name}")
+                await ctx.send(embed=self.create_embed("Playback Resumed", f"{config.PLAY_EMOJI} The music has been resumed."))
+            else:
+                logging.warning(f"Resume command invoked but nothing is paused or playing in {ctx.guild.name}")
+                await ctx.send(embed=self.create_embed("Error", f"{config.ERROR_EMOJI} No music is currently paused to resume.", discord.Color.red()))
         else:
-            logging.warning(f"Resume command invoked but nothing is paused or playing in {ctx.guild.name}")
-            await ctx.send(embed=self.create_embed("Error", f"{config.ERROR_EMOJI} No music is currently paused to resume.", discord.Color.red()))
+            await ctx.send(embed=self.create_embed("Error", f"{config.ERROR_EMOJI} I am not in a voice channel.", discord.Color.red()))
 
     @commands.command(name="clear")
     async def clear(self, ctx):
@@ -617,7 +672,8 @@ class Music(commands.Cog):
                 player_options['options'] += f' -filter:a "atempo={new_speed}"'
 
             # Create and play the new player with the updated speed
-            player = discord.FFmpegOpusAudio(current_song_data.url, **player_options)
+            source = discord.FFmpegPCMAudio(current_song_data.url, **player_options)
+            player = discord.PCMVolumeTransformer(source)
             player.volume = self.current_volume.get(guild_id, 1.0) # Apply stored volume
             ctx.voice_client.play(player, after=lambda e: self.bot.loop.create_task(self._after_playback(ctx, e)))
             
