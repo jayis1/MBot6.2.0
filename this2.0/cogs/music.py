@@ -127,6 +127,11 @@ class Music(commands.Cog):
         if not ctx.voice_client:
             logging.info("Bot not in a voice channel, joining.")
             await ctx.author.voice.channel.connect()
+        elif not ctx.voice_client.is_connected():
+            logging.info("Voice client exists but is not connected — force-reconnecting.")
+            await ctx.voice_client.disconnect(force=True)
+            await asyncio.sleep(0.5)
+            await ctx.author.voice.channel.connect()
 
         queue = await self.get_queue(ctx.guild.id)
         try:

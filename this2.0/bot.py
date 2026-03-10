@@ -32,6 +32,13 @@ async def on_ready():
     logging.info(f"Intents: {bot.intents}")
     logging.info('------')
 
+    # Clean up any stale voice sessions left over from a previous crash/restart.
+    # Without this, Discord rejects new connections with 4006 "Session no longer valid".
+    for guild in bot.guilds:
+        if guild.voice_client:
+            logging.info(f"Cleaning up stale voice connection in {guild.name}")
+            await guild.voice_client.disconnect(force=True)
+
     # Initialize and add DiscordLogHandler after bot is ready
     if config.LOG_CHANNEL_ID and config.LOG_CHANNEL_ID != "YOUR_LOG_CHANNEL_ID":
         discord_log_handler = DiscordLogHandler(bot, config.LOG_CHANNEL_ID)
