@@ -11,7 +11,6 @@ except ImportError:
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
-BOT_OWNER_ID = int(os.environ.get("BOT_OWNER_ID", 0) or 0)
 
 # You can change the bot's command prefix here
 COMMAND_PREFIX = "?"

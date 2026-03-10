@@ -21,7 +21,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix=config.COMMAND_PREFIX, intents=intents, owner_id=config.BOT_OWNER_ID)
+bot = commands.Bot(command_prefix=config.COMMAND_PREFIX, intents=intents)
 
 discord_log_handler = None # Initialize as None, will be set in on_ready
 
