@@ -8,7 +8,7 @@ import time
 
 import config
 
-from cogs.youtube import YTDLSource, FFMPEG_OPTIONS
+from cogs.youtube import YTDLSource, FFMPEG_OPTIONS, YTDL_FORMAT_OPTIONS
 from utils.suno import is_suno_url, get_suno_track
 
 class Music(commands.Cog):
@@ -198,7 +198,13 @@ class Music(commands.Cog):
         try:
             async with ctx.typing():
                 logging.info(f"Attempting to get YTDLSource from playlist URL: {url}")
-                result = await YTDLSource.from_url(url, loop=self.bot.loop)
+                
+                # Custom options for playlist loading
+                playlist_opts = YTDL_FORMAT_OPTIONS.copy()
+                playlist_opts["noplaylist"] = False
+                playlist_opts["playlist_items"] = "1-25"  # Load exactly 1 to 25 songs
+                
+                result = await YTDLSource.from_url(url, loop=self.bot.loop, ytdl_opts=playlist_opts)
                 logging.info(f"YTDLSource.from_url returned type for playlist: {type(result)}, content: {result}")
 
                 if not result or not isinstance(result, list):

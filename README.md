@@ -20,6 +20,7 @@ A self-contained Discord music bot built with Python and `discord.py`. It's desi
 - ✅ **Self-Contained Installation**: The `launch.sh` script automatically sets up a virtual environment and installs all dependencies.
 - ✅ **Background Operation**: Runs in a `screen` session, ensuring the bot stays online.
 - ✅ **YouTube Integration**: Play audio from YouTube URLs, playlists, and search queries.
+- ✅ **Suno Integration**: Play audio directly from Suno.com and app.suno.ai.
 - ✅ **Full Playback Control**: `play`, `pause`, `resume`, `skip`, `stop`.
 - ✅ **Queue Management**: `add`, `remove`, `clear`, `shuffle`, and `view queue`.
 - ✅ **Audio Controls**: Adjust `volume` and playback `speed`.
@@ -106,6 +107,7 @@ The `launch.sh` script is your control center for the bot.
 | `./launch.sh stop`    | Stops the bot and closes the `screen` session.                           |
 | `./launch.sh restart` | Restarts the bot.                                                        |
 | `./launch.sh attach`  | Displays recent logs and attempts to attach to the bot's console. See "Known Issues" if the console appears blank. |
+| `./launch.sh doctor`  | Runs an environment check and executes the automated test suite.         |
 
 ---
 
