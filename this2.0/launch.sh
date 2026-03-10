@@ -141,8 +141,20 @@ case "$1" in
         setup_environment
         echo "Setup complete. You can now start the bot with './launch.sh start'"
         ;;
+    doctor)
+        echo "--- Running Bot Doctor ---"
+        setup_environment
+        echo "Running automated test suite..."
+        "$VENV_PYTHON" -m pytest tests/ -v
+        if [ $? -eq 0 ]; then
+            echo "All tests passed! The environment and dependencies look healthy."
+        else
+            echo "Some tests failed. Please review the output above."
+        fi
+        echo "--------------------------"
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|attach|setup}"
+        echo "Usage: $0 {start|stop|restart|attach|setup|doctor}"
         exit 1
         ;;
 esac

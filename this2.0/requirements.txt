@@ -1,7 +1,10 @@
-discord.py>=2.3.2
-yt-dlp==2025.07.02.233055.dev0
+discord.py>=2.4.0
+yt-dlp
 google-api-python-client==2.110.0
 PyNaCl==1.5.0
 python-dotenv
 audioop-lts
 aiohttp
+pytest
+pytest-asyncio
+aioresponses
