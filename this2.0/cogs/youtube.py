@@ -14,7 +14,7 @@ YTDL_FORMAT_OPTIONS = {
     "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
     "restrictfilenames": True,
     "noplaylist": True,
-    "nocheckcertificate": False,
+    "nocheckcertificate": True,
     "ignoreerrors": False,
     "logtostderr": False,
     "quiet": True,
@@ -23,9 +23,9 @@ YTDL_FORMAT_OPTIONS = {
     "source_address": "0.0.0.0",
     "cookiefile": "youtube_cookie.txt" if __import__('os').path.exists("youtube_cookie.txt") else None,
     "http_headers": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36"
     },
-    "extractor_args": {"youtube": {"player_client": ["web"]}},
+    "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
 }
 
 class YTDLSource:
