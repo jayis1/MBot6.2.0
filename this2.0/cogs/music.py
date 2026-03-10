@@ -9,6 +9,7 @@ import time
 import config
 
 from cogs.youtube import YTDLSource, FFMPEG_OPTIONS
+from utils.suno import is_suno_url, get_suno_track
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -129,31 +130,43 @@ class Music(commands.Cog):
 
         queue = await self.get_queue(ctx.guild.id)
         try:
-            if query.isdigit() and ctx.guild.id in self.search_results:
-                video_id = self.search_results[ctx.guild.id][int(query) - 1][1]
-                url = f"https://www.youtube.com/watch?v={video_id}"
-            else:
-                url = query
-
             async with ctx.typing():
-                logging.info(f"Attempting to get YTDLSource from URL: {url}")
-                result = await YTDLSource.from_url(url, loop=self.bot.loop)
-                logging.info(f"YTDLSource.from_url returned type: {type(result)}, content: {result}")
+                # --- Suno.com URL ---
+                if is_suno_url(query):
+                    logging.info(f"Detected Suno URL: {query}")
+                    track = await get_suno_track(query)
+                    if not track:
+                        return await ctx.send(embed=self.create_embed("Suno Error", f"{config.ERROR_EMOJI} Could not resolve that Suno song. It may be private or the URL is invalid.", discord.Color.red()))
+                    await queue.put(track)
+                    logging.info(f"Added Suno track '{track.title}' to queue.")
+                    await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{track.title}` to the queue."))
 
-                if not result:
-                    logging.warning("Could not find any playable content.")
-                    return await ctx.send(embed=self.create_embed("No Results", f"{config.ERROR_EMOJI} Could not find any playable content for your query.", discord.Color.orange()))
-
-                if isinstance(result, list):
-                    logging.info(f"YTDLSource.from_url returned a list. Number of entries: {len(result)}")
-                    for entry in result:
-                        await queue.put(entry)
-                        logging.info(f"Added {entry.title} to queue.")
-                    await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {len(result)} songs to the queue."))
+                # --- YouTube / search ---
                 else:
-                    logging.info("Found single entry.")
-                    await queue.put(result)
-                    await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{result.title}` to the queue."))
+                    if query.isdigit() and ctx.guild.id in self.search_results:
+                        video_id = self.search_results[ctx.guild.id][int(query) - 1][1]
+                        url = f"https://www.youtube.com/watch?v={video_id}"
+                    else:
+                        url = query
+
+                    logging.info(f"Attempting to get YTDLSource from URL: {url}")
+                    result = await YTDLSource.from_url(url, loop=self.bot.loop)
+                    logging.info(f"YTDLSource.from_url returned type: {type(result)}, content: {result}")
+
+                    if not result:
+                        logging.warning("Could not find any playable content.")
+                        return await ctx.send(embed=self.create_embed("No Results", f"{config.ERROR_EMOJI} Could not find any playable content for your query.", discord.Color.orange()))
+
+                    if isinstance(result, list):
+                        logging.info(f"YTDLSource.from_url returned a list. Number of entries: {len(result)}")
+                        for entry in result:
+                            await queue.put(entry)
+                            logging.info(f"Added {entry.title} to queue.")
+                        await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {len(result)} songs to the queue."))
+                    else:
+                        logging.info("Found single entry.")
+                        await queue.put(result)
+                        await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{result.title}` to the queue."))
 
             if not ctx.voice_client.is_playing():
                 logging.info("Voice client not playing, starting playback.")
