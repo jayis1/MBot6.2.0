@@ -318,8 +318,11 @@ class Music(commands.Cog):
                 # Start a new task to update the nowplaying message periodically
                 self.nowplaying_tasks[ctx.guild.id] = self.bot.loop.create_task(self._update_nowplaying_message(ctx.guild.id, ctx.channel.id))
             except Exception as e:
-                logging.error(f"Error playing next song: {e}")
-                await ctx.send(embed=self.create_embed("Error", f"Could not play the next song: {e}", discord.Color.red()))
+                logging.error(f"Error playing next song in {ctx.guild.name}: {e}")
+                await ctx.send(embed=self.create_embed("Error", f"{config.ERROR_EMOJI} Could not play the next song: {e}", discord.Color.red()))
+                # If error, try playing next again after a short delay
+                await asyncio.sleep(2)
+                await self.play_next(ctx)
         else:
             logging.info("Queue is empty, stopping playback.")
             await self.bot.change_presence(activity=None)
@@ -341,7 +344,7 @@ class Music(commands.Cog):
                 
                 await self._update_nowplaying_display(guild_id, channel.id, silent_update=True)
                 logging.debug(f"_update_nowplaying_message: Message updated for guild {guild_id}. Stored Message ID: {self.nowplaying_message.get(guild_id).id if self.nowplaying_message.get(guild_id) else 'None'}")
-                await asyncio.sleep(5)  # Update every 5 seconds
+                await asyncio.sleep(40)  # Update every 40 seconds
             except asyncio.CancelledError:
                 logging.info(f"_update_nowplaying_message: Task cancelled for {guild_id}")
                 break
@@ -374,11 +377,11 @@ class Music(commands.Cog):
             embed.set_thumbnail(url=data.thumbnail)
             
             view = discord.ui.View(timeout=None)
-            view.add_item(discord.ui.Button(emoji=config.PLAY_EMOJI, style=discord.ButtonStyle.secondary, custom_id="play"))
-            view.add_item(discord.ui.Button(emoji=config.PAUSE_EMOJI, style=discord.ButtonStyle.secondary, custom_id="pause"))
-            view.add_item(discord.ui.Button(emoji=config.SKIP_EMOJI, style=discord.ButtonStyle.secondary, custom_id="skip"))
-            view.add_item(discord.ui.Button(emoji=config.ERROR_EMOJI, style=discord.ButtonStyle.danger, custom_id="stop"))
-            view.add_item(discord.ui.Button(emoji=config.QUEUE_EMOJI, style=discord.ButtonStyle.primary, custom_id="queue"))
+            view.add_item(discord.ui.Button(label="Play/Resume", emoji=config.PLAY_EMOJI, style=discord.ButtonStyle.secondary, custom_id="play"))
+            view.add_item(discord.ui.Button(label="Pause", emoji=config.PAUSE_EMOJI, style=discord.ButtonStyle.secondary, custom_id="pause"))
+            view.add_item(discord.ui.Button(label="Skip", emoji=config.SKIP_EMOJI, style=discord.ButtonStyle.secondary, custom_id="skip"))
+            view.add_item(discord.ui.Button(label="Stop", emoji=config.ERROR_EMOJI, style=discord.ButtonStyle.danger, custom_id="stop"))
+            view.add_item(discord.ui.Button(label="Queue", emoji=config.QUEUE_EMOJI, style=discord.ButtonStyle.primary, custom_id="queue"))
 
             if current_nowplaying_message:
                 try:
@@ -505,11 +508,11 @@ class Music(commands.Cog):
                                           Queue=f"{queue.qsize()} songs remaining")
                 embed.set_thumbnail(url=data.thumbnail)
                 view = discord.ui.View(timeout=None)
-                view.add_item(discord.ui.Button(emoji=config.PLAY_EMOJI, style=discord.ButtonStyle.secondary, custom_id="play"))
-                view.add_item(discord.ui.Button(emoji=config.PAUSE_EMOJI, style=discord.ButtonStyle.secondary, custom_id="pause"))
-                view.add_item(discord.ui.Button(emoji=config.SKIP_EMOJI, style=discord.ButtonStyle.secondary, custom_id="skip"))
-                view.add_item(discord.ui.Button(emoji=config.ERROR_EMOJI, style=discord.ButtonStyle.danger, custom_id="stop"))
-                view.add_item(discord.ui.Button(emoji=config.QUEUE_EMOJI, style=discord.ButtonStyle.primary, custom_id="queue"))
+                view.add_item(discord.ui.Button(label="Play/Resume", emoji=config.PLAY_EMOJI, style=discord.ButtonStyle.secondary, custom_id="play"))
+                view.add_item(discord.ui.Button(label="Pause", emoji=config.PAUSE_EMOJI, style=discord.ButtonStyle.secondary, custom_id="pause"))
+                view.add_item(discord.ui.Button(label="Skip", emoji=config.SKIP_EMOJI, style=discord.ButtonStyle.secondary, custom_id="skip"))
+                view.add_item(discord.ui.Button(label="Stop", emoji=config.ERROR_EMOJI, style=discord.ButtonStyle.danger, custom_id="stop"))
+                view.add_item(discord.ui.Button(label="Queue", emoji=config.QUEUE_EMOJI, style=discord.ButtonStyle.primary, custom_id="queue"))
                 
                 self.nowplaying_message[guild_id] = await ctx.send(embed=embed, view=view)
                 logging.info(f"nowplaying: Sent initial message {self.nowplaying_message[guild_id].id} for {data.title} in {ctx.guild.name}")
