@@ -4,7 +4,7 @@ from cogs.youtube import YTDLSource, YTDL_FORMAT_OPTIONS
 
 @pytest.mark.asyncio
 async def test_playlist_extraction():
-    url = "https://www.youtube.com/playlist?list=PL3v6uIu7mXjrU6P8x_9_P7mXv6t_8g6r0"
+    url = "https://youtube.com/playlist?list=PL7UlqC4kFPVpadgAlxqcYPhWPPJ_H2Ghi&si=acuADwYbCwY45rR5"
     
     playlist_opts = YTDL_FORMAT_OPTIONS.copy()
     playlist_opts["noplaylist"] = False
@@ -20,7 +20,7 @@ async def test_playlist_extraction():
 
 @pytest.mark.asyncio
 async def test_radio_extraction():
-    url = "https://www.youtube.com/playlist?list=PL3v6uIu7mXjrU6P8x_9_P7mXv6t_8g6r0"
+    url = "https://youtube.com/playlist?list=PL7UlqC4kFPVpadgAlxqcYPhWPPJ_H2Ghi&si=acuADwYbCwY45rR5"
     
     radio_opts = YTDL_FORMAT_OPTIONS.copy()
     radio_opts["noplaylist"] = False
