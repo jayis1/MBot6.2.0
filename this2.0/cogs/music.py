@@ -443,12 +443,13 @@ class Music(commands.Cog):
             # Optionally, send an error message to the channel
             # await ctx.send(embed=self.create_embed("Playback Error", f"An error occurred during playback: {error}", discord.Color.red()))
         
+        queue = await self.get_queue(ctx.guild.id)
+        
         # Check if looping is enabled
         if self.looping.get(ctx.guild.id):
             # If looping, re-add the current song to the queue
             current_song_data = self.current_song.get(ctx.guild.id)
             if current_song_data:
-                queue = await self.get_queue(ctx.guild.id)
                 await queue.put(current_song_data)
                 logging.info(f"Looping enabled. Re-added {current_song_data.title} to queue.")
         
