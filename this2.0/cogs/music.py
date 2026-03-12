@@ -134,44 +134,48 @@ class Music(commands.Cog):
             await ctx.author.voice.channel.connect()
 
         queue = await self.get_queue(ctx.guild.id)
+        result = None # Initialize result to avoid UnboundLocalError
         try:
-            async with ctx.typing():
-                # --- Suno.com URL ---
-                if is_suno_url(query):
-                    logging.info(f"Detected Suno URL: {query}")
-                    track = await get_suno_track(query)
-                    if not track:
-                        return await ctx.send(embed=self.create_embed("Suno Error", f"{config.ERROR_EMOJI} Could not resolve that Suno song. It may be private or the URL is invalid.", discord.Color.red()))
-                    await queue.put(track)
-                    logging.info(f"Added Suno track '{track.title}' to queue.")
-                    await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{track.title}` to the queue."))
-
-                # --- YouTube / search ---
-                else:
-                    if query.isdigit() and ctx.guild.id in self.search_results:
-                        video_id = self.search_results[ctx.guild.id][int(query) - 1][1]
-                        url = f"https://www.youtube.com/watch?v={video_id}"
+            try:
+                async with ctx.typing():
+                    # --- Suno.com URL ---
+                    if is_suno_url(query):
+                        logging.info(f"Detected Suno URL: {query}")
+                        track = await get_suno_track(query)
+                        if not track:
+                            return await ctx.send(embed=self.create_embed("Suno Error", f"{config.ERROR_EMOJI} Could not resolve that Suno song. It may be private or the URL is invalid.", discord.Color.red()))
+                        await queue.put(track)
+                        logging.info(f"Added Suno track '{track.title}' to queue.")
+                        await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{track.title}` to the queue."))
+                    
+                    # --- YouTube / search ---
                     else:
-                        url = query
+                        if query.isdigit() and ctx.guild.id in self.search_results:
+                            video_id = self.search_results[ctx.guild.id][int(query) - 1][1]
+                            url = f"https://www.youtube.com/watch?v={video_id}"
+                        else:
+                            url = query
 
-                    logging.info(f"Attempting to get YTDLSource from URL: {url}")
-                    result = await YTDLSource.from_url(url, loop=self.bot.loop)
-                    logging.info(f"YTDLSource.from_url returned type: {type(result)}, content: {result}")
+                        logging.info(f"Attempting to get YTDLSource from URL: {url}")
+                        result = await YTDLSource.from_url(url, loop=self.bot.loop)
+                        logging.info(f"YTDLSource.from_url returned type: {type(result)}, content: {result}")
 
-                    if not result:
-                        logging.warning("Could not find any playable content.")
-                        return await ctx.send(embed=self.create_embed("No Results", f"{config.ERROR_EMOJI} Could not find any playable content for your query.", discord.Color.orange()))
+                        if not result:
+                            logging.warning("Could not find any playable content.")
+                            return await ctx.send(embed=self.create_embed("No Results", f"{config.ERROR_EMOJI} Could not find any playable content for your query.", discord.Color.orange()))
 
-                    if isinstance(result, list):
-                        logging.info(f"YTDLSource.from_url returned a list. Number of entries: {len(result)}")
-                        for entry in result:
-                            await queue.put(entry)
-                            logging.info(f"Added {entry.title} to queue.")
-                        await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {len(result)} songs to the queue."))
-                    else:
-                        logging.info("Found single entry.")
-                        await queue.put(result)
-                        await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{result.title}` to the queue."))
+                        if isinstance(result, list):
+                            logging.info(f"YTDLSource.from_url returned a list. Number of entries: {len(result)}")
+                            for entry in result:
+                                await queue.put(entry)
+                                logging.info(f"Added {entry.title} to queue.")
+                            await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {len(result)} songs to the queue."))
+                        else:
+                            logging.info("Found single entry.")
+                            await queue.put(result)
+                            await ctx.send(embed=self.create_embed("Song Added", f"{config.QUEUE_EMOJI} Added `{result.title}` to the queue."))
+            except discord.DiscordServerError:
+                 logging.warning("Discord typing failed due to 503 error. Proceeding with remainder of play command.")
 
             if not ctx.voice_client.is_playing():
                 logging.info("Voice client not playing, starting playback.")
@@ -182,6 +186,7 @@ class Music(commands.Cog):
         except Exception as e:
             logging.error(f"Error in play command: {e}")
             await ctx.send(embed=self.create_embed("Error", f"An error occurred: {e}", discord.Color.red()))
+
 
     @commands.command(name="playlist")
     async def playlist(self, ctx, *, url):
@@ -196,30 +201,33 @@ class Music(commands.Cog):
 
         queue = await self.get_queue(ctx.guild.id)
         try:
-            async with ctx.typing():
-                logging.info(f"Attempting to get YTDLSource from playlist URL: {url}")
-                
-                # Custom options for playlist loading
-                playlist_opts = YTDL_FORMAT_OPTIONS.copy()
-                playlist_opts["noplaylist"] = False
-                playlist_opts["playlist_items"] = "1-25"  # Load exactly 1 to 25 songs
-                
-                result = await YTDLSource.from_url(url, loop=self.bot.loop, ytdl_opts=playlist_opts)
-                logging.info(f"YTDLSource.from_url returned type for playlist: {type(result)}, content: {result}")
+            try:
+                async with ctx.typing():
+                    logging.info(f"Attempting to get YTDLSource from playlist URL: {url}")
+                    
+                    # Custom options for playlist loading
+                    playlist_opts = YTDL_FORMAT_OPTIONS.copy()
+                    playlist_opts["noplaylist"] = False
+                    playlist_opts["playlist_items"] = "1-25"  # Load exactly 1 to 25 songs
+                    
+                    result = await YTDLSource.from_url(url, loop=self.bot.loop, ytdl_opts=playlist_opts)
+                    logging.info(f"YTDLSource.from_url returned type for playlist: {type(result)}, content: {result}")
 
-                if not result or not isinstance(result, list):
-                    logging.warning("Could not find any playable playlist content or it's not a playlist.")
-                    return await ctx.send(embed=self.create_embed("No Playlist Found", f"{config.ERROR_EMOJI} Could not find any playable playlist content for your URL, or it's not a valid playlist URL.", discord.Color.orange()))
+                    if not result or not isinstance(result, list):
+                        logging.warning("Could not find any playable playlist content or it's not a playlist.")
+                        return await ctx.send(embed=self.create_embed("No Playlist Found", f"{config.ERROR_EMOJI} Could not find any playable playlist content for your URL, or it's not a valid playlist URL.", discord.Color.orange()))
 
-                added_count = 0
-                for entry in result:
-                    await queue.put(entry)
-                    added_count += 1
-                
-                if added_count > 0:
-                    await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {added_count} songs from the playlist to the queue."))
-                else:
-                    await ctx.send(embed=self.create_embed("No Songs Added", f"{config.ERROR_EMOJI} No playable songs were found in the playlist.", discord.Color.orange()))
+                    added_count = 0
+                    for entry in result:
+                        await queue.put(entry)
+                        added_count += 1
+                    
+                    if added_count > 0:
+                        await ctx.send(embed=self.create_embed("Playlist Added", f"{config.QUEUE_EMOJI} Added {added_count} songs from the playlist to the queue."))
+                    else:
+                        await ctx.send(embed=self.create_embed("No Songs Added", f"{config.ERROR_EMOJI} No playable songs were found in the playlist.", discord.Color.orange()))
+            except discord.DiscordServerError:
+                logging.warning("Discord typing failed in playlist. Proceeding.")
 
             if not ctx.voice_client.is_playing():
                 logging.info("Voice client not playing, starting playback.")
@@ -230,6 +238,7 @@ class Music(commands.Cog):
         except Exception as e:
             logging.error(f"Error in playlist command: {e}")
             await ctx.send(embed=self.create_embed("Error", f"An error occurred: {e}", discord.Color.red()))
+
 
     @commands.command(name="radio")
     async def radio(self, ctx, *, url):
@@ -246,32 +255,35 @@ class Music(commands.Cog):
         loading_msg = await ctx.send(embed=self.create_embed("Loading Radio", f"{config.QUEUE_EMOJI} Fetching playlist songs, please wait..."))
         
         try:
-            async with ctx.typing():
-                logging.info(f"Attempting to get YTDLSource for radio from URL: {url}")
-                
-                # Custom options for radio loading (more songs)
-                radio_opts = YTDL_FORMAT_OPTIONS.copy()
-                radio_opts["noplaylist"] = False
-                radio_opts["playlist_items"] = "1-100"  # Load up to 100 songs for radio
-                
-                result = await YTDLSource.from_url(url, loop=self.bot.loop, ytdl_opts=radio_opts)
-                logging.info(f"YTDLSource.from_url returned {len(result) if isinstance(result, list) else 'single'} entries for radio.")
+            try:
+                async with ctx.typing():
+                    logging.info(f"Attempting to get YTDLSource for radio from URL: {url}")
+                    
+                    # Custom options for radio loading (more songs)
+                    radio_opts = YTDL_FORMAT_OPTIONS.copy()
+                    radio_opts["noplaylist"] = False
+                    radio_opts["playlist_items"] = "1-100"  # Load up to 100 songs for radio
+                    
+                    result = await YTDLSource.from_url(url, loop=self.bot.loop, ytdl_opts=radio_opts)
+                    logging.info(f"YTDLSource.from_url returned {len(result) if isinstance(result, list) else 'single'} entries for radio.")
 
-                if not result or not isinstance(result, list):
+                    if not result or not isinstance(result, list):
+                        await loading_msg.delete()
+                        logging.warning("Could not find any playable content or it's not a playlist.")
+                        return await ctx.send(embed=self.create_embed("No Radio Content", f"{config.ERROR_EMOJI} Could not find any playable playlist content for your URL.", discord.Color.orange()))
+
+                    added_count = 0
+                    for entry in result:
+                        await queue.put(entry)
+                        added_count += 1
+                    
                     await loading_msg.delete()
-                    logging.warning("Could not find any playable content or it's not a playlist.")
-                    return await ctx.send(embed=self.create_embed("No Radio Content", f"{config.ERROR_EMOJI} Could not find any playable playlist content for your URL.", discord.Color.orange()))
-
-                added_count = 0
-                for entry in result:
-                    await queue.put(entry)
-                    added_count += 1
-                
-                await loading_msg.delete()
-                if added_count > 0:
-                    await ctx.send(embed=self.create_embed("Radio Started", f"{config.SUCCESS_EMOJI} Loaded {added_count} songs from the radio playlist into the queue."))
-                else:
-                    await ctx.send(embed=self.create_embed("No Songs Added", f"{config.ERROR_EMOJI} No playable songs were found.", discord.Color.orange()))
+                    if added_count > 0:
+                        await ctx.send(embed=self.create_embed("Radio Started", f"{config.SUCCESS_EMOJI} Loaded {added_count} songs from the radio playlist into the queue."))
+                    else:
+                        await ctx.send(embed=self.create_embed("No Songs Added", f"{config.ERROR_EMOJI} No playable songs were found.", discord.Color.orange()))
+            except discord.DiscordServerError:
+                 logging.warning("Discord typing failed in radio. Proceeding.")
 
             if not ctx.voice_client.is_playing():
                 logging.info("Voice client not playing, starting playback.")
@@ -280,9 +292,13 @@ class Music(commands.Cog):
                     del self.inactivity_timers[ctx.guild.id]
                 await self.play_next(ctx)
         except Exception as e:
-            await loading_msg.delete()
+            try:
+                await loading_msg.delete()
+            except:
+                pass
             logging.error(f"Error in radio command: {e}")
             await ctx.send(embed=self.create_embed("Error", f"An error occurred while loading radio: {e}", discord.Color.red()))
+
 
     async def play_next(self, ctx):
         logging.info("play_next called.")
@@ -348,9 +364,12 @@ class Music(commands.Cog):
             except asyncio.CancelledError:
                 logging.info(f"_update_nowplaying_message: Task cancelled for {guild_id}")
                 break
+            except discord.DiscordServerError:
+                logging.error(f"_update_nowplaying_message: Discord 503 error for guild {guild_id}. Sleeping 60s.")
+                await asyncio.sleep(60)
             except Exception as e:
                 logging.error(f"_update_nowplaying_message: Error updating message for guild {guild_id}: {e}", exc_info=True)
-                await asyncio.sleep(5) # Wait before retrying
+                await asyncio.sleep(10) # Wait before retrying
 
     async def _update_nowplaying_display(self, guild_id, channel_id, silent_update=False):
         logging.debug(f"_update_nowplaying_display: Called for guild {guild_id}, channel {channel_id}. Silent: {silent_update}.")
@@ -385,21 +404,22 @@ class Music(commands.Cog):
 
             if current_nowplaying_message:
                 try:
-                    # Attempt to fetch the message to ensure it still exists and is valid
-                    fetched_message = await channel.fetch_message(current_nowplaying_message.id)
-                    logging.debug(f"nowplaying_display: Fetched message {fetched_message.id} for editing.")
-                    await fetched_message.edit(embed=embed, view=view)
-                    self.nowplaying_message[guild_id] = fetched_message # Update reference in case it changed
-                    logging.info(f"nowplaying_display: Edited message {fetched_message.id} for {data.title} in {guild.name}")
-                except discord.NotFound:
-                    logging.warning(f"nowplaying_display: Previous message {current_nowplaying_message.id} not found for editing in {guild.name}. Sending new message.")
+                    # Edit the stored message directly to reduce API calls (no fetch_message needed)
+                    await current_nowplaying_message.edit(embed=embed, view=view)
+                    logging.info(f"nowplaying_display: Edited message {current_nowplaying_message.id} for {data.title} in {guild.name}")
+                except (discord.NotFound, discord.Forbidden):
+                    logging.warning(f"nowplaying_display: Previous message {current_nowplaying_message.id} not found or no permission in {guild.name}. Sending new message.")
                     self.nowplaying_message[guild_id] = await channel.send(embed=embed, view=view)
                     logging.info(f"nowplaying_display: Sent new message {self.nowplaying_message[guild_id].id} for {data.title} in {guild.name}")
+                except discord.DiscordServerError:
+                    # Don't try to send a new message if the server is already down/unstable
+                    logging.error(f"nowplaying_display: Discord Server Error (5xx) while editing message in {guild.name}.")
+                    raise # Re-raise for the background task to handle (it will sleep)
                 except Exception as e:
-                    logging.error(f"nowplaying_display: Error editing message {current_nowplaying_message.id} for {data.title} in {guild.name}: {e}", exc_info=True)
-                    # If editing fails for other reasons, try sending a new message
+                    logging.error(f"nowplaying_display: Error editing message {current_nowplaying_message.id} for {data.title} in {guild.name}: {e}")
+                    # Try sending a new message as a fallback for other errors
                     self.nowplaying_message[guild_id] = await channel.send(embed=embed, view=view)
-                    logging.info(f"nowplaying_display: Sent new message {self.nowplaying_message[guild_id].id} after edit failure for {data.title} in {guild.name}")
+
             else:
                 self.nowplaying_message[guild_id] = await channel.send(embed=embed, view=view)
                 logging.info(f"nowplaying_display: Sent initial message {self.nowplaying_message[guild_id].id} for {data.title} in {guild.name}")
