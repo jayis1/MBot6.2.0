@@ -124,15 +124,6 @@ class Music(commands.Cog):
             logging.warning("User not in a voice channel.")
             return await ctx.send(embed=self.create_embed("Error", f"{config.ERROR_EMOJI} You must be in a voice channel to play music.", discord.Color.red()))
 
-        if not ctx.voice_client:
-            logging.info("Bot not in a voice channel, joining.")
-            await ctx.author.voice.channel.connect()
-        elif not ctx.voice_client.is_connected():
-            logging.info("Voice client exists but is not connected — force-reconnecting.")
-            await ctx.voice_client.disconnect(force=True)
-            await asyncio.sleep(0.5)
-            await ctx.author.voice.channel.connect()
-
         queue = await self.get_queue(ctx.guild.id)
         result = None # Initialize result to avoid UnboundLocalError
         try:
@@ -177,6 +168,16 @@ class Music(commands.Cog):
             except discord.DiscordServerError:
                  logging.warning("Discord typing failed due to 503 error. Proceeding with remainder of play command.")
 
+            # Join voice AFTER extraction succeeds so the connection doesn't sit idle
+            if not ctx.voice_client:
+                logging.info("Bot not in a voice channel, joining.")
+                await ctx.author.voice.channel.connect(self_deaf=True)
+            elif not ctx.voice_client.is_connected():
+                logging.info("Voice client exists but is not connected — force-reconnecting.")
+                await ctx.voice_client.disconnect(force=True)
+                await asyncio.sleep(0.5)
+                await ctx.author.voice.channel.connect(self_deaf=True)
+
             if not ctx.voice_client.is_playing():
                 logging.info("Voice client not playing, starting playback.")
                 if ctx.guild.id in self.inactivity_timers:
@@ -197,7 +198,7 @@ class Music(commands.Cog):
 
         if not ctx.voice_client:
             logging.info("Bot not in a voice channel, joining.")
-            await ctx.author.voice.channel.connect()
+            await ctx.author.voice.channel.connect(self_deaf=True)
 
         queue = await self.get_queue(ctx.guild.id)
         try:
@@ -249,7 +250,7 @@ class Music(commands.Cog):
 
         if not ctx.voice_client:
             logging.info("Bot not in a voice channel, joining.")
-            await ctx.author.voice.channel.connect()
+            await ctx.author.voice.channel.connect(self_deaf=True)
 
         queue = await self.get_queue(ctx.guild.id)
         loading_msg = await ctx.send(embed=self.create_embed("Loading Radio", f"{config.QUEUE_EMOJI} Fetching playlist songs, please wait..."))
