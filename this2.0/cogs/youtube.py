@@ -10,7 +10,7 @@ FFMPEG_OPTIONS = {
 
 # --- YTDL Options ---
 YTDL_FORMAT_OPTIONS = {
-    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+    "format": "bestaudio*/best",
     "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
     "restrictfilenames": True,
     "noplaylist": True,
@@ -25,7 +25,6 @@ YTDL_FORMAT_OPTIONS = {
     "http_headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36"
     },
-    "extractor_args": {"youtube": {"player_client": ["ios", "web"]}},
     "extract_flat": "discard_in_playlist",
 }
 
